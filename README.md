@@ -1,29 +1,93 @@
-# Self-Verifying AVQE with Quantum Natural Gradient (QNG)
+# Self-Verifying Adiabatic Variational Quantum Eigensolver (AVQE)
 
-This repository implements the **Self-Verifying Adaptive Variational Quantum Eigensolver (AVQE)** optimized via the **Quantum Natural Gradient (QNG / QNP)**. 
+This repository contains the specification and algorithmic layout for the **Self-Verifying Adiabatic Variational Quantum Eigensolver (AVQE)**, based on the warm-start adiabatic optimization paradigm.
 
-### Overview & Key Features
-
-* **Adiabatic Warm Starts**: Discretizes an adiabatic path $H(\lambda) = (1-\lambda)H_i + \lambda H_f$ into $T$ steps, initializing gradient descent at each step using the optimal parameter set from the previous step[cite: 3].
-* **Barren Plateau & Local Minima Mitigation**: By incrementally tracking the ground state along a continuous path, optimization remains within a local convexity/Polyak-Łojasiewicz (PL) basin[cite: 3].
-* **Theoretical Convergence Guarantees**: Gradient updates track the instantaneous ground state across the entire path with a total optimization update complexity scaling as $\mathcal{O}(\Delta_{\text{min}}^{-3})$, where $\Delta_{\text{min}}$ is the minimum spectral gap[cite: 3].
-* **Runtime Ground-State Certification**: Features an a posteriori verification test using energy standard deviation measurements $\sigma_\psi(H(\lambda))$[cite: 3]. Achieving $\sigma_\psi < \Delta_c / 2$ (for a gap lower bound $\Delta_c \le \Delta_{\text{min}}$) provably certifies convergence to the ground state branch with fidelity $\ge 8/9$[cite: 3].
-* **Shot-Noise Robustness**: Maintains certification guarantees under finite measurement shot noise with $\mathcal{O}(\Delta_{\text{min}}^{-4})$ shots per slice[cite: 3].
+> **Reference Paper:**  
+> *Scalable, self-verifying variational quantum eigensolver using adiabatic warm starts*  
+> Bojan Žunkovič, Marco Ballarin, Lewis Wright, and Michael Lubasch (2026)  
+> [arXiv:2602.17612v1 [quant-ph]](https://arxiv.org/abs/2602.17612)
 
 ---
 
-## References
+## 1. Core Idea of the Algorithm
 
-* **Scalable, Self-Verifying Adiabatic VQE (AVQE)**[cite: 3]
-  
-  ```bibtex
-  @article{zunkovic2026scalable,
-  title={Scalable, self-verifying variational quantum eigensolver using adiabatic warm starts},
-  author={{\v{Z}}unkovi{\v{c}}, Bojan and Ballarin, Marco and Wright, Lewis and Lubasch, Michael},
-  journal={arXiv preprint},
-  year={2026},
-  month={February}
-  }
+**Self-Verifying AVQE** resolves these challenges through two key mechanisms:
+1. **Adiabatic Warm Starts**: Instead of optimizing directly on a single target Hamiltonian, optimization is executed sequentially along a discretized linear adiabatic path. At each path slice $\lambda$, parameters are initialized from the solution at $\lambda - \delta\lambda$. This warm start keeps the optimizer within a locally convex tracking basin along the adiabatic path, provably avoiding barren plateaus and local traps.
+2. **Runtime Verification**: Runtime measurements of the energy standard deviation $\sigma_\psi(H(\lambda))$ certify eigenstate accuracy and verify convergence to the global optimum. This enables dynamic adjustment of the adiabatic step size $\delta\lambda$ while providing strict ground-state fidelity certificates.
+
+---
+
+## 2. Variational Ansatz
+
+The algorithm uses an $M$-parameter Pauli-rotation variational ansatz defined over $n$ qubits:
+
+$$\vert{}\psi(\theta)\rangle = \prod_{j=0}^{M-1} U_j \vert{}0\rangle = \prod_{j=0}^{M-1} e^{-i P_j \theta_j} \vert{}0\rangle$$
+
+where:
+* $\theta = (\theta_0, \theta_1, \dots, \theta_{M-1})^T \in \mathbb{R}^M$ is the vector of variational parameters.
+* $P_j \in \{I, X, Y, Z\}^{\otimes n}$ are Pauli string generators acting on $n$ qubits.
+* $U_j = e^{-i P_j \theta_j}$ are single-parameter unitary rotations.
+
+---
+
+## 3. Parameter Definitions & Theoretical Quantities
+
+| Parameter / Symbol | Mathematical Definition | Description |
+| :--- | :--- | :--- |
+| **$H(\lambda)$** | $H(\lambda) = (1-\lambda)H_i + \lambda H_f$ | Linear adiabatic Hamiltonian schedule interpolating between initial Hamiltonian $H_i$ and target Hamiltonian $H_f$ for $\lambda \in [0, 1]$. |
+| **$E_\lambda(\theta)$** | $E_\lambda(\theta) = \langle \psi(\theta) \vert H(\lambda) \vert \psi(\theta) \rangle$ | Variational energy expectation value (cost function) at adiabatic path slice $\lambda$. |
+| **$\theta^*(\lambda)$** | $\vert \psi(\theta^*(\lambda)) \rangle = \vert \psi_0(\lambda) \rangle$ | Global parameter minimizer representing the exact instantaneous ground state $\vert \psi_0(\lambda) \rangle$. |
+| **$\Delta(\lambda)$** | $\Delta(\lambda) = E_1(\lambda) - E_0(\lambda)$ | Instantaneous spectral gap between the ground state $E_0(\lambda)$ and the first excited state $E_1(\lambda)$. |
+| **$\Delta_{\min}$** | $\Delta_{\min} = \min_{\lambda \in [0, 1]} \Delta(\lambda)$ | Minimum spectral gap encountered across the entire adiabatic path. |
+| **$\Delta_c$** | $\Delta_c \le \Delta_{\min}$ | Estimated/certified lower bound on the spectral gap along the path. |
+| **$g_{\mu\nu}(\theta)$** | $g_{\mu\nu}(\theta) = \text{Re}\left( \langle \partial_\mu \psi \vert \partial_\nu \psi \rangle - \langle \partial_\mu \psi \vert \psi \rangle \langle \psi \vert \partial_\nu \psi \rangle \right)$ | Fubini-Study metric tensor (real part of the quantum geometric tensor) on the variational manifold. |
+| **$\gamma$** | $g(\theta^*(\lambda)) \ge \gamma \mathbb{I}$ | Geometric nondegeneracy constant bounding the metric tensor lower spectrum. |
+| **$\sigma_\psi(A)$** | $\sigma_\psi(A) = \sqrt{\langle \psi \vert A^2 \vert \psi \rangle - (\langle \psi \vert A \vert \psi \rangle)^2}$ | Standard deviation of an operator $A$ evaluated with respect to state $\vert \psi \rangle$. |
+| **$\eta$** | $\eta > 0$ | Optimization learning rate for gradient descent updates: $\theta^{(k+1)} = \theta^{(k)} - \eta \mathcal{G}_t(\theta^{(k)})$. |
+| **$K$** | $K \ge c_1 \frac{M \Vert{}H\Vert{}_{\text{op}}}{\gamma \Delta_{\min}}$ | Number of gradient-descent optimization steps performed per adiabatic slice. |
+| **$\delta\lambda_A$** | $\delta\lambda_A = c_0 \frac{\gamma^2 \Delta_{\min}^2}{M^2 \Vert{}H\Vert{}_{\text{op}} \Vert{}\partial_\lambda H\Vert{}_{\text{op}}}$ | Maximum adiabatic step size for theoretical ground-state tracking. |
+| **$\delta\lambda_V$** | $\delta\lambda_V = \frac{\Delta_c / 2 - \sigma_\psi(H(\lambda))}{\sigma_\psi(H_f - H_i)}$ | Dynamic verification-based step size bound ensuring state fidelity retention. |
+| **$\Vert{}A\Vert{}_{\text{op}}$** | $\Vert{}A\Vert{}_{\text{op}} = \max_{\lambda} \Vert{}A(\lambda)\Vert{}_{\text{op}}$ | Operator norm of operator $A$ over the path. |
+
+---
+
+## 4. Final Fidelity Bound
+
+According to **Theorem 2 (Runtime Verification)**:
+
+Given a lower bound estimate $\Delta_c \le \Delta_{\min}$, if the measured energy standard deviation satisfies:
+
+$$\sigma_{\psi_t}(H(\lambda_t)) < \frac{\Delta_c}{2}$$
+
+and the adiabatic step size satisfies $\delta\lambda < \delta\lambda_V = \frac{\Delta_c - \sigma_{\psi_t}(H(\lambda_t))}{2 \sigma_{\psi_t}(H_f - H_i)}$, then the prepared state $\vert{}\psi_t\rangle$ is uniquely associated with the true ground-state eigenbranch of $H(\lambda_t)$ and satisfies the strict lower fidelity bound:
+
+$$\mathcal{F} = \vert{}\langle \psi_0(\lambda_t) \vert{} \psi_t \rangle\vert{}^2 \ge \frac{8}{9} \approx 88.89\%$$
+
+---
+
+## 5. Algorithm Pseudocode
+
+```text
+Algorithm: Self-verifying AVQE
+Input: Initial Hamiltonian Hi, final Hamiltonian Hf, initial parameters θ0,
+       adiabatic tracking step size δλA, learning rate η, number of gradient steps K,
+       estimated gap bound Δc
+Output: Final variational state |ψ(θ)⟩
+
+ 1: Prepare |ψ(θ0)⟩ as the ground state of H(0)
+ 2: λ ← 0
+ 3: while λ < 1 do
+ 4:     Perform K gradient-descent steps on Eλ(θ)
+ 5:     Measure σψ(H(λ))
+ 6:     if σψ(H(λ)) > Δc/2 then
+ 7:         go to line 4
+ 8:     end if
+ 9:     Measure σψ(Hf − Hi)
+10:     δλV ← (Δc/2 − σψ(H(λ))) / σψ(Hf − Hi)
+11:     δλ ← min{δλA, δλV, 1 − λ}
+12:     λ ← λ + δλ
+13: end while
+14: return |ψ(θ)⟩
 
 
 To balance classical simulation speed with scalable quantum execution, the framework provides two backend implementations: a high-speed JAX simulator for rapid benchmarking and a native Qrisp workflow designed for larger systems and real quantum hardware.
