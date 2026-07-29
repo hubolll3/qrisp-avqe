@@ -85,10 +85,10 @@ where:
 | **$\gamma$** | $g(\theta^*(\lambda)) \ge \gamma \mathbb{I}$ | Geometric nondegeneracy constant bounding the metric tensor lower spectrum. |
 | **$\sigma_\psi(A)$** | $\sigma_\psi(A) = \sqrt{\langle \psi \vert A^2 \vert \psi \rangle - (\langle \psi \vert A \vert \psi \rangle)^2}$ | Standard deviation of an operator $A$ evaluated with respect to state $\vert \psi \rangle$. |
 | **$\eta$** | $\eta > 0$ | Optimization learning rate for gradient descent updates: $\theta^{(k+1)} = \theta^{(k)} - \eta \mathcal{G}_t(\theta^{(k)})$. |
-| **$K$** | $K \ge c_1 \frac{M \lVertH\rVert_{\text{op}}}{\gamma \Delta_{\min}}$ | Number of gradient-descent optimization steps performed per adiabatic slice. |
-| **$\delta\lambda_A$** | $\delta\lambda_A = c_0 \frac{\gamma^2 \Delta_{\min}^2}{M^2 \lVertH\rVert_{\text{op}} \lVert\partial_\lambda H\rVert_{\text{op}}}$ | Maximum adiabatic step size for theoretical ground-state tracking. |
+| **$K$** | $K \ge c_1 \frac{M \lVert H\rVert_{\text{op}}}{\gamma \Delta_{\min}}$ | Number of gradient-descent optimization steps performed per adiabatic slice. |
+| **$\delta\lambda_A$** | $\delta\lambda_A = c_0 \frac{\gamma^2 \Delta_{\min}^2}{M^2 \lVert H\rVert_{\text{op}} \lVert \partial_\lambda H\rVert_{\text{op}}}$ | Maximum adiabatic step size for theoretical ground-state tracking. |
 | **$\delta\lambda_V$** | $\delta\lambda_V = \frac{\Delta_c / 2 - \sigma_\psi(H(\lambda))}{\sigma_\psi(H_f - H_i)}$ | Dynamic verification-based step size bound ensuring state fidelity retention. |
-| **$\lVertA\rVert_{\text{op}}$** | $\lVertA\rVert_{\text{op}} = \max_{\lambda} \lVertA(\lambda)\rVert_{\text{op}}$ | Operator norm of operator $A$ over the path. |
+| **$\lVert A\rVert_{\text{op}}$** | $\lVert A\rVert_{\text{op}} = \max_{\lambda} \lVert A(\lambda)\rVert_{\text{op}}$ | Operator norm of operator $A$ over the path. |
 
 ---
 
