@@ -17,55 +17,21 @@ This repository contains the specification and algorithmic layout for the **Self
 
 ---
 
-## 2. Variational Ansatz
+## 2. Repository Structure
 
-The algorithm uses an $M$-parameter Pauli-rotation variational ansatz defined over $n$ qubits:
+To balance classical simulation speed with scalable quantum execution, the framework provides two backend implementations: a high-speed JAX simulator for rapid benchmarking and a native Qrisp workflow designed for larger systems and real quantum hardware.
 
-$$\vert{}\psi(\theta)\rangle = \prod_{j=0}^{M-1} U_j \vert{}0\rangle = \prod_{j=0}^{M-1} e^{-i P_j \theta_j} \vert{}0\rangle$$
-
-where:
-* $\theta = (\theta_0, \theta_1, \dots, \theta_{M-1})^T \in \mathbb{R}^M$ is the vector of variational parameters.
-* $P_j \in \{I, X, Y, Z\}^{\otimes n}$ are Pauli string generators acting on $n$ qubits.
-* $U_j = e^{-i P_j \theta_j}$ are single-parameter unitary rotations.
-
----
-
-## 3. Parameter Definitions & Theoretical Quantities
-
-| Parameter / Symbol | Mathematical Definition | Description |
-| :--- | :--- | :--- |
-| **$H(\lambda)$** | $H(\lambda) = (1-\lambda)H_i + \lambda H_f$ | Linear adiabatic Hamiltonian schedule interpolating between initial Hamiltonian $H_i$ and target Hamiltonian $H_f$ for $\lambda \in [0, 1]$. |
-| **$E_\lambda(\theta)$** | $E_\lambda(\theta) = \langle \psi(\theta) \vert H(\lambda) \vert \psi(\theta) \rangle$ | Variational energy expectation value (cost function) at adiabatic path slice $\lambda$. |
-| **$\theta^*(\lambda)$** | $\vert \psi(\theta^*(\lambda)) \rangle = \vert \psi_0(\lambda) \rangle$ | Global parameter minimizer representing the exact instantaneous ground state $\vert \psi_0(\lambda) \rangle$. |
-| **$\Delta(\lambda)$** | $\Delta(\lambda) = E_1(\lambda) - E_0(\lambda)$ | Instantaneous spectral gap between the ground state $E_0(\lambda)$ and the first excited state $E_1(\lambda)$. |
-| **$\Delta_{\min}$** | $\Delta_{\min} = \min_{\lambda \in [0, 1]} \Delta(\lambda)$ | Minimum spectral gap encountered across the entire adiabatic path. |
-| **$\Delta_c$** | $\Delta_c \le \Delta_{\min}$ | Estimated/certified lower bound on the spectral gap along the path. |
-| **$g_{\mu\nu}(\theta)$** | $g_{\mu\nu}(\theta) = \text{Re}\left( \langle \partial_\mu \psi \vert \partial_\nu \psi \rangle - \langle \partial_\mu \psi \vert \psi \rangle \langle \psi \vert \partial_\nu \psi \rangle \right)$ | Fubini-Study metric tensor (real part of the quantum geometric tensor) on the variational manifold. |
-| **$\gamma$** | $g(\theta^*(\lambda)) \ge \gamma \mathbb{I}$ | Geometric nondegeneracy constant bounding the metric tensor lower spectrum. |
-| **$\sigma_\psi(A)$** | $\sigma_\psi(A) = \sqrt{\langle \psi \vert A^2 \vert \psi \rangle - (\langle \psi \vert A \vert \psi \rangle)^2}$ | Standard deviation of an operator $A$ evaluated with respect to state $\vert \psi \rangle$. |
-| **$\eta$** | $\eta > 0$ | Optimization learning rate for gradient descent updates: $\theta^{(k+1)} = \theta^{(k)} - \eta \mathcal{G}_t(\theta^{(k)})$. |
-| **$K$** | $K \ge c_1 \frac{M \Vert{}H\Vert{}_{\text{op}}}{\gamma \Delta_{\min}}$ | Number of gradient-descent optimization steps performed per adiabatic slice. |
-| **$\delta\lambda_A$** | $\delta\lambda_A = c_0 \frac{\gamma^2 \Delta_{\min}^2}{M^2 \Vert{}H\Vert{}_{\text{op}} \Vert{}\partial_\lambda H\Vert{}_{\text{op}}}$ | Maximum adiabatic step size for theoretical ground-state tracking. |
-| **$\delta\lambda_V$** | $\delta\lambda_V = \frac{\Delta_c / 2 - \sigma_\psi(H(\lambda))}{\sigma_\psi(H_f - H_i)}$ | Dynamic verification-based step size bound ensuring state fidelity retention. |
-| **$\Vert{}A\Vert{}_{\text{op}}$** | $\Vert{}A\Vert{}_{\text{op}} = \max_{\lambda} \Vert{}A(\lambda)\Vert{}_{\text{op}}$ | Operator norm of operator $A$ over the path. |
+```text
+├── avqe_qnp_jax.py      # JAX backend (fast classical auto-diff, N <= 12)
+├── avqe_qnp_qrisp.py    # Native Qrisp backend (scalable execution, N >= 14)
+├── run_examples.py      # Main entry point for test cases and examples
+├── requirements.txt     # Python dependencies
+└── README.md            # Project documentation
+```
 
 ---
 
-## 4. Final Fidelity Bound
-
-According to **Theorem 2 (Runtime Verification)**:
-
-Given a lower bound estimate $\Delta_c \le \Delta_{\min}$, if the measured energy standard deviation satisfies:
-
-$$\sigma_{\psi_t}(H(\lambda_t)) < \frac{\Delta_c}{2}$$
-
-and the adiabatic step size satisfies $\delta\lambda < \delta\lambda_V = \frac{\Delta_c - \sigma_{\psi_t}(H(\lambda_t))}{2 \sigma_{\psi_t}(H_f - H_i)}$, then the prepared state $\vert{}\psi_t\rangle$ is uniquely associated with the true ground-state eigenbranch of $H(\lambda_t)$ and satisfies the strict lower fidelity bound:
-
-$$\mathcal{F} = \vert{}\langle \psi_0(\lambda_t) \vert{} \psi_t \rangle\vert{}^2 \ge \frac{8}{9} \approx 88.89\%$$
-
----
-
-## 5. Algorithm Pseudocode
+## 3. Algorithm Pseudocode
 
 ```text
 Algorithm: Self-verifying AVQE
@@ -88,15 +54,52 @@ Output: Final variational state |ψ(θ)⟩
 12:     λ ← λ + δλ
 13: end while
 14: return |ψ(θ)⟩
+```
 
+---
 
-To balance classical simulation speed with scalable quantum execution, the framework provides two backend implementations: a high-speed JAX simulator for rapid benchmarking and a native Qrisp workflow designed for larger systems and real quantum hardware.
+## 4. Variational Ansatz
 
-## Repository Structure
+The algorithm uses an $M$-parameter Pauli-rotation variational ansatz defined over $n$ qubits:
 
-```text
-├── avqe_qnp_jax.py      # JAX backend (fast classical auto-diff, N <= 12)
-├── avqe_qnp_qrisp.py    # Native Qrisp backend (scalable execution, N >= 14)
-├── run_examples.py      # Main entry point for test cases and examples
-├── requirements.txt     # Python dependencies
-└── README.md            # Project documentation
+$$\vert{}\psi(\theta)\rangle = \prod_{j=0}^{M-1} U_j \vert{}0\rangle = \prod_{j=0}^{M-1} e^{-i P_j \theta_j} \vert{}0\rangle$$
+
+where:
+* $\theta = (\theta_0, \theta_1, \dots, \theta_{M-1})^T \in \mathbb{R}^M$ is the vector of variational parameters.
+* $P_j \in \{I, X, Y, Z\}^{\otimes n}$ are Pauli string generators acting on $n$ qubits.
+* $U_j = e^{-i P_j \theta_j}$ are single-parameter unitary rotations.
+
+---
+
+## 5. Parameter Definitions & Theoretical Quantities
+
+| Parameter / Symbol | Mathematical Definition | Description |
+| :--- | :--- | :--- |
+| **$H(\lambda)$** | $H(\lambda) = (1-\lambda)H_i + \lambda H_f$ | Linear adiabatic Hamiltonian schedule interpolating between initial Hamiltonian $H_i$ and target Hamiltonian $H_f$ for $\lambda \in [0, 1]$. |
+| **$E_\lambda(\theta)$** | $E_\lambda(\theta) = \langle \psi(\theta) \vert H(\lambda) \vert \psi(\theta) \rangle$ | Variational energy expectation value (cost function) at adiabatic path slice $\lambda$. |
+| **$\theta^*(\lambda)$** | $\vert \psi(\theta^*(\lambda)) \rangle = \vert \psi_0(\lambda) \rangle$ | Global parameter minimizer representing the exact instantaneous ground state $\vert \psi_0(\lambda) \rangle$. |
+| **$\Delta(\lambda)$** | $\Delta(\lambda) = E_1(\lambda) - E_0(\lambda)$ | Instantaneous spectral gap between the ground state $E_0(\lambda)$ and the first excited state $E_1(\lambda)$. |
+| **$\Delta_{\min}$** | $\Delta_{\min} = \min_{\lambda \in [0, 1]} \Delta(\lambda)$ | Minimum spectral gap encountered across the entire adiabatic path. |
+| **$\Delta_c$** | $\Delta_c \le \Delta_{\min}$ | Estimated/certified lower bound on the spectral gap along the path. |
+| **$g_{\mu\nu}(\theta)$** | $g_{\mu\nu}(\theta) = \text{Re}\left( \langle \partial_\mu \psi \vert \partial_\nu \psi \rangle - \langle \partial_\mu \psi \vert \psi \rangle \langle \psi \vert \partial_\nu \psi \rangle \right)$ | Fubini-Study metric tensor (real part of the quantum geometric tensor) on the variational manifold. |
+| **$\gamma$** | $g(\theta^*(\lambda)) \ge \gamma \mathbb{I}$ | Geometric nondegeneracy constant bounding the metric tensor lower spectrum. |
+| **$\sigma_\psi(A)$** | $\sigma_\psi(A) = \sqrt{\langle \psi \vert A^2 \vert \psi \rangle - (\langle \psi \vert A \vert \psi \rangle)^2}$ | Standard deviation of an operator $A$ evaluated with respect to state $\vert \psi \rangle$. |
+| **$\eta$** | $\eta > 0$ | Optimization learning rate for gradient descent updates: $\theta^{(k+1)} = \theta^{(k)} - \eta \mathcal{G}_t(\theta^{(k)})$. |
+| **$K$** | $K \ge c_1 \frac{M \lVertH\rVert_{\text{op}}}{\gamma \Delta_{\min}}$ | Number of gradient-descent optimization steps performed per adiabatic slice. |
+| **$\delta\lambda_A$** | $\delta\lambda_A = c_0 \frac{\gamma^2 \Delta_{\min}^2}{M^2 \lVertH\rVert_{\text{op}} \lVert\partial_\lambda H\rVert_{\text{op}}}$ | Maximum adiabatic step size for theoretical ground-state tracking. |
+| **$\delta\lambda_V$** | $\delta\lambda_V = \frac{\Delta_c / 2 - \sigma_\psi(H(\lambda))}{\sigma_\psi(H_f - H_i)}$ | Dynamic verification-based step size bound ensuring state fidelity retention. |
+| **$\lVertA\rVert_{\text{op}}$** | $\lVertA\rVert_{\text{op}} = \max_{\lambda} \lVertA(\lambda)\rVert_{\text{op}}$ | Operator norm of operator $A$ over the path. |
+
+---
+
+## 6. Final Fidelity Bound
+
+According to **Theorem 2 (Runtime Verification)**:
+
+Given a lower bound estimate $\Delta_c \le \Delta_{\min}$, if the measured energy standard deviation satisfies:
+
+$$\sigma_{\psi_t}(H(\lambda_t)) < \frac{\Delta_c}{2}$$
+
+and the adiabatic step size satisfies $\delta\lambda < \delta\lambda_V = \frac{\Delta_c - \sigma_{\psi_t}(H(\lambda_t))}{2 \sigma_{\psi_t}(H_f - H_i)}$, then the prepared state $\vert{}\psi_t\rangle$ is uniquely associated with the true ground-state eigenbranch of $H(\lambda_t)$ and satisfies the strict lower fidelity bound:
+
+$$\mathcal{F} = \vert{}\langle \psi_0(\lambda_t) \vert{} \psi_t \rangle\vert{}^2 \ge \frac{8}{9} \approx 88.89\%$$
