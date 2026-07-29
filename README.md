@@ -1,47 +1,38 @@
-# AVQE with Quantum Natural Gradient (QNP)
+# Self-Verifying AVQE with Quantum Natural Gradient (QNG)
 
-This repository contains two implementations of the Adaptive Variational Quantum Eigensolver (AVQE) using the Quantum Natural Gradient (QNP) optimizer.
+This repository implements the **Self-Verifying Adaptive Variational Quantum Eigensolver (AVQE)** optimized via the **Quantum Natural Gradient (QNG / QNP)**. 
 
-The goal is to provide a fast version for local testing and a scalable version built with native Qrisp primitives that doesn't run out of memory on larger systems.
+### Overview & Key Features
 
-## Implementations
-
-* **`avqe_qnp_jax.py` (Fast local testing):** Uses JAX auto-diff (`jax.grad` and `jax.jacfwd`) for fast classical simulations on small systems ($N \le 12$ qubits). 
-* **`avqe_qnp_qrisp.py` (Scalable / Qrisp-native):** Uses native Qrisp functions (`expectation_value`) and the parameter-shift rule. Slower, but should be able to handle larger numbers of qubits.
-
----
-
-## Method Details
-
-### Optimizer
-Instead of standard gradient descent, parameters are updated using the Fubini-Study metric tensor (Quantum Fisher Information Matrix):
-
-$$\theta_{k+1} = \theta_k - \eta \, g^+ \nabla E(\theta_k)$$
-
-where $g^+$ is the pseudo-inverse of the metric tensor.
-
-### Convergence Metric
-Eigenstate convergence is evaluated using energy variance:
-
-$$\sigma_H = \sqrt{\langle H^2 \rangle - \langle H \rangle^2}$$
-
-Both scripts include a small numerical floor to keep floating-point cancellation from producing negative numbers under square roots when states are very close to exact ground states.
+* **Adiabatic Warm Starts**: Discretizes an adiabatic path $H(\lambda) = (1-\lambda)H_i + \lambda H_f$ into $T$ steps, initializing gradient descent at each step using the optimal parameter set from the previous step[cite: 3].
+* **Barren Plateau & Local Minima Mitigation**: By incrementally tracking the ground state along a continuous path, optimization remains within a local convexity/Polyak-Łojasiewicz (PL) basin[cite: 3].
+* **Theoretical Convergence Guarantees**: Gradient updates track the instantaneous ground state across the entire path with a total optimization update complexity scaling as $\mathcal{O}(\Delta_{\text{min}}^{-3})$, where $\Delta_{\text{min}}$ is the minimum spectral gap[cite: 3].
+* **Runtime Ground-State Certification**: Features an a posteriori verification test using energy standard deviation measurements $\sigma_\psi(H(\lambda))$[cite: 3]. Achieving $\sigma_\psi < \Delta_c / 2$ (for a gap lower bound $\Delta_c \le \Delta_{\text{min}}$) provably certifies convergence to the ground state branch with fidelity $\ge 8/9$[cite: 3].
+* **Shot-Noise Robustness**: Maintains certification guarantees under finite measurement shot noise with $\mathcal{O}(\Delta_{\text{min}}^{-4})$ shots per slice[cite: 3].
 
 ---
 
-## Setup and Running
+## References
 
-1. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+* **Scalable, Self-Verifying Adiabatic VQE (AVQE)**[cite: 3]
+  
+  ```bibtex
+  @article{zunkovic2026scalable,
+  title={Scalable, self-verifying variational quantum eigensolver using adiabatic warm starts},
+  author={{\v{Z}}unkovi{\v{c}}, Bojan and Ballarin, Marco and Wright, Lewis and Lubasch, Michael},
+  journal={arXiv preprint},
+  year={2026},
+  month={February}
+  }
 
-2. Run the JAX version:
-   ```bash
-   python avqe_qnp_jax.py
-   ```
 
-3. Run the Qrisp native version:
-   ```bash
-   python avqe_qnp_qrisp.py
-   ```
+To balance classical simulation speed with scalable quantum execution, the framework provides two backend implementations: a high-speed JAX simulator for rapid benchmarking and a native Qrisp workflow designed for larger systems and real quantum hardware.
+
+## Repository Structure
+
+```text
+├── avqe_qnp_jax.py      # JAX backend (fast classical auto-diff, N <= 12)
+├── avqe_qnp_qrisp.py    # Native Qrisp backend (scalable execution, N >= 14)
+├── run_examples.py      # Main entry point for test cases and examples
+├── requirements.txt     # Python dependencies
+└── README.md            # Project documentation
