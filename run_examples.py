@@ -40,7 +40,7 @@ def run_jax_4qubit_example():
     P_4q, params_0_4q = build_tfim_ansatz(n_qubits=4, layers=2)
 
     # Note: live_plot and track_exact can be easily toggled on/off here
-    self_verifying_AVQE_qrisp(
+    self_verifying_AVQE_jax(
         H_i=Hi_4q,
         H_f=Hf_4q,
         P=P_4q,
@@ -56,7 +56,7 @@ def run_jax_4qubit_example():
 
 def run_qrisp_4qubit_example():
     print("==========================================")
-    print("   JAX: 4-Qubit TFIM (Fast Simulation)    ")
+    print("   QRISP: 4-Qubit TFIM    ")
     print("==========================================")
     
     Hi_4q = sum([-1.0 * X(i) for i in range(4)])
@@ -64,7 +64,7 @@ def run_qrisp_4qubit_example():
     P_4q, params_0_4q = build_tfim_ansatz(n_qubits=4, layers=2)
 
     # Note: live_plot and track_exact can be easily toggled on/off here
-    self_verifying_AVQE_jax(
+    self_verifying_AVQE_qrisp(
         H_i=Hi_4q,
         H_f=Hf_4q,
         P_strings=P_4q,
