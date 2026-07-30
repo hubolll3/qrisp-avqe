@@ -134,11 +134,18 @@ def self_verifying_AVQE_qrisp(
 
     Parameters
     ----------
+    H_i, H_f : initial and final Hamiltonian, writen with QRISP Pauli operators
+    P_strings : array of characters 'I,X,Y,Z' in shape (m,n) - n is the number of qubits
+    params_0 : array of floats of length m
+    dl_A : maximum step size of lambda
+    K : number of gradient descent steps in each iteration
+    delta_C : determines the maximum value of sigma_H before taking the next step
+    lr : learning rate parameter of the gradient descent
+    name : string - used for the name of the savef pdf plot
     live_plot : bool
         Enables real-time progress plotting.
     track_exact : bool
-        Computes sparse ground-state energy and state infidelity
-        (computationally expensive).
+        Computes sparse ground-state energy and state infidelity (computationally expensive).
     """
 
     n_qubits = len(P_strings[0])
