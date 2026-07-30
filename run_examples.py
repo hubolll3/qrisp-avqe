@@ -67,7 +67,7 @@ def run_qrisp_4qubit_example():
     self_verifying_AVQE_jax(
         H_i=Hi_4q,
         H_f=Hf_4q,
-        P=P_4q,
+        P_strings=P_4q,
         params_0=params_0_4q,
         dl_A=0.15,
         K=10,
