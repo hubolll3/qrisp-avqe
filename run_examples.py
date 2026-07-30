@@ -1,5 +1,5 @@
 from qrisp.operators import X, Z
-from avqe_qnp_jax import self_verifying_AVQE_QNG
+from avqe_qnp_jax import self_verifying_AVQE_jax
 from avqe_qnp_qrisp import self_verifying_AVQE_qrisp
 import numpy as np
 
@@ -40,7 +40,7 @@ def run_jax_4qubit_example():
     P_4q, params_0_4q = build_tfim_ansatz(n_qubits=4, layers=2)
 
     # Note: live_plot and track_exact can be easily toggled on/off here
-    self_verifying_AVQE_QNG(
+    self_verifying_AVQE_qrisp(
         H_i=Hi_4q,
         H_f=Hf_4q,
         P=P_4q,
@@ -53,6 +53,31 @@ def run_jax_4qubit_example():
         live_plot=True,     # Toggle real-time plotting
         track_exact=True    # Toggle exact ground-state diagonalization
     )
+
+def run_qrisp_4qubit_example():
+    print("==========================================")
+    print("   JAX: 4-Qubit TFIM (Fast Simulation)    ")
+    print("==========================================")
+    
+    Hi_4q = sum([-1.0 * X(i) for i in range(4)])
+    Hf_4q = -1.0 * (Z(0)*Z(1) + Z(1)*Z(2) + Z(2)*Z(3)) - 0.3 * sum([X(i) for i in range(4)])
+    P_4q, params_0_4q = build_tfim_ansatz(n_qubits=4, layers=2)
+
+    # Note: live_plot and track_exact can be easily toggled on/off here
+    self_verifying_AVQE_jax(
+        H_i=Hi_4q,
+        H_f=Hf_4q,
+        P=P_4q,
+        params_0=params_0_4q,
+        dl_A=0.15,
+        K=10,
+        delta_C=0.4,
+        lr=0.08,
+        name="4-qubit-qrisp-tfim",
+        live_plot=True,     # Toggle real-time plotting
+        track_exact=True    # Toggle exact ground-state diagonalization
+    )
+
 
 def build_2d_grid_ansatz_qrisp(n_rows=3, n_cols=4, layers=2):
     n_qubits = n_rows * n_cols
@@ -135,3 +160,4 @@ def run_qrisp_2qubit_example():
 if __name__ == "__main__":
     run_jax_4qubit_example()
     run_qrisp_2qubit_example()
+    run_qrisp_4qubit_example()

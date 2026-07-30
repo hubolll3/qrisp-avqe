@@ -230,7 +230,7 @@ def qng_step_baseline(params, H_mat, P_mats, lr=0.08, eps=1e-3, max_grad_norm=0.
 # 4. AVQE MAIN LOOP
 # ==========================================
 
-def self_verifying_AVQE_QNG(
+def self_verifying_AVQE_jax(
     H_i, H_f, P, params_0, dl_A, K, delta_C, lr=0.08, eps=1e-3, max_grad_norm=0.5,
     name=None, live_plot=False, track_exact=False
 ):
