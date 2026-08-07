@@ -101,4 +101,4 @@ and the adiabatic step size satisfies $\delta\lambda < \delta\lambda_V = \frac{\
 $$\mathcal{F} = \vert{}\langle \psi_0(\lambda_t) \vert{} \psi_t \rangle\vert{}^2 \ge \frac{8}{9} \approx 88.89\%$$
 
 ## 7. Examples of plots
-![Algorithm Results](docs/qnp.png)
+![Algorithm Results](qnp.png)
