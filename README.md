@@ -19,11 +19,8 @@ This repository contains the specification and algorithmic layout for the **Self
 
 ## 2. Repository Structure
 
-To balance classical simulation speed with scalable quantum execution, the framework provides two backend implementations: a high-speed JAX simulator for rapid benchmarking and a native Qrisp workflow designed for larger systems and real quantum hardware.
-
 ```text
-├── avqe_qnp_jax.py      # JAX backend (fast classical auto-diff, N <= 12)
-├── avqe_qnp_qrisp.py    # Native Qrisp backend (scalable execution, N >= 14)
+├── avqe_qrisp.py        # Qrisp based AVQE
 ├── run_examples.py      # Main entry point for test cases and examples
 ├── requirements.txt     # Python dependencies
 └── README.md            # Project documentation
@@ -92,7 +89,7 @@ According to **Theorem 2 (Runtime Verification)**:
 
 Given a lower bound estimate $\Delta_c \le \Delta_{\min}$, if the measured energy standard deviation satisfies:
 
-$$\sigma_{\psi_t}(H(\lambda_t)) < \frac{\Delta_c}{2}$$
+$$\sigma_{\psi_t}(H(\lambda_t)) < \frac{\Delta_c}{4}$$
 
 and the adiabatic step size satisfies $\delta\lambda < \delta\lambda_V = \frac{\Delta_c - \sigma_{\psi_t}(H(\lambda_t))}{2 \sigma_{\psi_t}(H_f - H_i)}$, then the prepared state $\vert{}\psi_t\rangle$ is uniquely associated with the true ground-state eigenbranch of $H(\lambda_t)$ and satisfies the strict lower fidelity bound:
 
