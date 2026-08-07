@@ -7,17 +7,18 @@ import qrisp
 from qrisp.operators import X, Y, Z
 from qiskit_aer import AerSimulator
 
-# Configure Aer for multi-threaded statevector simulation natively in Qrisp
+# Backend setup: Aer multi-threaded statevector simulator
 qrisp.environments.virtual_backend = AerSimulator(
     method="statevector",
-    max_parallel_threads=0  # Automatically use all CPU cores
+    max_parallel_threads=0  # Auto-detect CPU cores
 )
 
 # ==========================================
-# 1. STATE PREP
+# 1. STATE PREPARATION FACTORY
 # ==========================================
 
 def create_qrisp_state_prep(trotter_unitaries, n_qubits):
+    """Factory returning a state-prep function for a given parameter vector."""
     def state_prep(params):
         qv = qrisp.QuantumVariable(n_qubits)
         for j, U in enumerate(trotter_unitaries):
@@ -28,10 +29,11 @@ def create_qrisp_state_prep(trotter_unitaries, n_qubits):
 
 
 # ==========================================
-# 2. OPTIMIZERS (VANILLA, QNP/QNG, ADAM)
+# 2. OPTIMIZERS
 # ==========================================
 
 def compute_gradient_parameter_shift(ev_H, params):
+    """Computes energy gradient dE/d\theta via parameter-shift rule."""
     m = len(params)
     grad = np.zeros(m)
     shift = np.pi / 4.0
@@ -47,6 +49,7 @@ def compute_gradient_parameter_shift(ev_H, params):
 
 
 def compute_qfim_forward_with_base(params, psi_base, state_prep, eps=1e-5):
+    """Computes the QFIM via statevector finite-differences."""
     m = len(params)
     J = np.zeros((len(psi_base), m), dtype=np.complex128)
 
@@ -64,19 +67,22 @@ def compute_qfim_forward_with_base(params, psi_base, state_prep, eps=1e-5):
 
 
 def vanilla_gd_step_qrisp(params, ev_H, state_prep, lr=0.08):
+    """Executes one standard Gradient Descent update."""
     qv_base = state_prep(params)
     psi_base = qv_base.qs.statevector_array()
 
     grad = compute_gradient_parameter_shift(ev_H, params)
-    grad_norm = np.linalg.norm(grad)
 
     new_params = params - lr * grad
-    new_E = float(np.real(ev_H(new_params)))
 
-    return new_params, new_E, grad_norm, psi_base
+    return new_params, psi_base
 
 
 def qnp_step_qrisp(params, ev_H, state_prep, lr=0.08, eps=1e-3, max_grad_norm=0.5):
+    """
+        Executes one step of Quantum Natural Gradient (QNP/QNG) optimization.
+        θ^(k+1) = θ^(k) - η * g^(-1) * ∇ E(θ^(k))
+    """
     qv_base = state_prep(params)
     psi_base = qv_base.qs.statevector_array()
 
@@ -85,10 +91,11 @@ def qnp_step_qrisp(params, ev_H, state_prep, lr=0.08, eps=1e-3, max_grad_norm=0.
     grad_norm = np.linalg.norm(grad)
 
     if grad_norm < 1e-8:
-        return params, current_E, grad_norm, psi_base
+        return params, psi_base
 
     g = compute_qfim_forward_with_base(params, psi_base, state_prep, eps=eps)
 
+    # Adaptive Tikhonov regularization loop
     current_eps = eps
     for _ in range(6):
         g_reg = g + current_eps * np.eye(g.shape[0])
@@ -97,6 +104,7 @@ def qnp_step_qrisp(params, ev_H, state_prep, lr=0.08, eps=1e-3, max_grad_norm=0.
         except np.linalg.LinAlgError:
             nat_grad = np.linalg.pinv(g_reg, rcond=1e-4) @ grad
 
+        # Clip step magnitude if natural gradient norm is too large
         gnorm = np.linalg.norm(nat_grad)
         if gnorm > max_grad_norm:
             nat_grad = nat_grad * (max_grad_norm / gnorm)
@@ -105,27 +113,25 @@ def qnp_step_qrisp(params, ev_H, state_prep, lr=0.08, eps=1e-3, max_grad_norm=0.
         candidate_E = float(np.real(ev_H(candidate_params)))
 
         if candidate_E <= current_E + 1e-12:
-            return candidate_params, candidate_E, grad_norm, psi_base
+            return candidate_params, psi_base
 
         current_eps *= 4.0
 
+    # Fallback standard gradient step if QNG fails to decrease energy
     fallback_params = params - 0.02 * (grad / (grad_norm + 1e-8))
     fallback_E = float(np.real(ev_H(fallback_params)))
     if fallback_E < current_E:
-        return fallback_params, fallback_E, grad_norm, psi_base
+        return fallback_params, psi_base
 
-    return params, current_E, grad_norm, psi_base
+    return params, psi_base
 
 
 def adam_step_qrisp(params, ev_H, state_prep, opt_state, lr=0.02, beta1=0.9, beta2=0.999, eps=1e-8):
-    """
-    Executes one step of Adam optimization.
-    """
+    """Executes one Adam optimization step."""
     qv_base = state_prep(params)
     psi_base = qv_base.qs.statevector_array()
 
     grad = compute_gradient_parameter_shift(ev_H, params)
-    grad_norm = np.linalg.norm(grad)
 
     opt_state["t"] += 1
     t = opt_state["t"]
@@ -137,9 +143,8 @@ def adam_step_qrisp(params, ev_H, state_prep, opt_state, lr=0.02, beta1=0.9, bet
     v_hat = opt_state["v"] / (1.0 - (beta2 ** t))
 
     new_params = params - lr * m_hat / (np.sqrt(v_hat) + eps)
-    new_E = float(np.real(ev_H(new_params)))
 
-    return new_params, new_E, grad_norm, psi_base
+    return new_params, psi_base
 
 
 # ==========================================
@@ -156,28 +161,55 @@ def self_verifying_AVQE_qrisp(
     delta_C,
     lr=0.08,
     kappa=0.9,
-    optimizer_type="vanilla",  # Choice between 'qnp', 'vanilla', and 'adam'
+    optimizer_type="vanilla",
     name=None,
     live_plot=False,
     track_exact=False,
     const_step=False
 ):
     """
-    Implements AVQE with option for constant step size or adaptive verification.
+        Implements Self-verifying AVQE as described in the paper linked on github.
+        
+        Parameters:
+        -----------
+        H_i, H_f : Qrisp QubitOperators
+            Initial and final Hamiltonians defining the linear adiabatic schedule H(λ).
+        P_strings : list of str
+            Pauli string generators for the trotterized ansatz.
+        params_0 : array-like
+            Initial parameters θ_0.
+        dl_A : float
+            Adiabatic tracking step size limit δλ_A (from Theorem 1 or heuristic). If const_step=True, dl_A must be lower than the limit in the paper
+        K : int
+            Number of gradient descent steps per verification check. If const_step=True, K must be larger than the limit in the paper
+        delta_C : float
+            Estimated spectral gap lower bound Δ_c <= Δ_min = min(E_1(lambda) - E_0(lambda)).
+        lr : float
+            Learning rate η.
+        kappa : float
+            Safety factor κ ∈ (0, 1) enforcing strict step-size inequality (Algorithm 1 Line 6).
+        optimizer_type : str ("qnp", "vanilla" or "adam")
+            Selects between Quantum Natural Gradient ('qnp'), Vanilla Gradient Descent ('vanilla') and Adam optimizer ('adam').
+        name : string
+            name of .pdf file of the final plot
+        live_plot : bool
+        track_exact : bool
+            calculate the exact ground energy and the state infidelity and plot them
+        const_step : bool
+            use dl_A as a constant step size, dont cehch if sigma_H < delta_C / 4
     """
+    
     n_qubits = len(P_strings[0])
 
+    # Build Trotterized ansatz unitaries
     trotter_unitaries = []
     for p_str in P_strings:
         term = None
         for i, char in enumerate(p_str):
             op = None
-            if char == "X":
-                op = X(i)
-            elif char == "Y":
-                op = Y(i)
-            elif char == "Z":
-                op = Z(i)
+            if char == "X": op = X(i)
+            elif char == "Y": op = Y(i)
+            elif char == "Z": op = Z(i)
             if op is not None:
                 term = op if term is None else term * op
 
@@ -185,6 +217,7 @@ def self_verifying_AVQE_qrisp(
 
     state_prep = create_qrisp_state_prep(trotter_unitaries, n_qubits)
 
+    # Pre-compute operator difference H_f - H_i for dynamic step sizing
     H_diff = (H_f - H_i).hermitize()
     H_diff_sq = (H_diff * H_diff).hermitize()
     ev_Hdiff = H_diff.expectation_value(state_prep)
@@ -194,6 +227,7 @@ def self_verifying_AVQE_qrisp(
     np.random.seed(42)
     params = np.array(params_0, dtype=np.float64) + np.random.normal(0, 0.01, size=len(params_0))
 
+    # Measure initial variance \sigma(H_0)
     H_0 = H_i.hermitize()
     H_0_sq = (H_0 * H_0).hermitize()
     ev_H0 = H_0.expectation_value(state_prep)
@@ -239,6 +273,7 @@ def self_verifying_AVQE_qrisp(
     while lbd < 1.0:
         step += 1
 
+        # Calculate step size \delta\lambda
         if const_step:
             dl = min(dl_A, 1.0 - lbd)
         else:
@@ -247,23 +282,21 @@ def self_verifying_AVQE_qrisp(
             sigma_delta = np.sqrt(max(0.0, diff_E2 - diff_E**2))
 
             numerator = max(1e-12, (delta_C / 2.0) - sigma_H)
-            if sigma_delta < 1e-9:
-                dl_V = dl_A
-            else:
-                dl_V = kappa * (numerator / sigma_delta)
-
+            dl_V = dl_A if sigma_delta < 1e-9 else kappa * (numerator / sigma_delta)
             dl = min(dl_A, max(0.001, dl_V), 1.0 - lbd)
 
         lbd += dl
 
+        # Update current Hamiltonian H(\lambda)
         H_curr = ((1.0 - lbd) * H_i + lbd * H_f).hermitize()
         H_curr_sq = (H_curr * H_curr).hermitize()
         ev_H = H_curr.expectation_value(state_prep)
         ev_H2 = H_curr_sq.expectation_value(state_prep)
 
+        # Optimization and verification loop
         while True:
             for _ in range(K):
-                params, E_val, grad_norm, psi_last = step_fn(params, ev_H)
+                params, psi_last = step_fn(params, ev_H)
 
             check_count += 1
             now = time.time()
@@ -279,6 +312,7 @@ def self_verifying_AVQE_qrisp(
             energies.append(E_val)
             sigmas.append(sigma_H)
 
+            # Benchmarking metrics
             infidelity_str = ""
             if track_exact:
                 exact_E0 = float(H_curr.ground_state_energy())
@@ -292,6 +326,7 @@ def self_verifying_AVQE_qrisp(
                 infidelities.append(infidelity)
                 infidelity_str = f", Infidelity = {infidelity:.4e}"
 
+            # Real-time plot update
             if live_plot:
                 ax_energy.clear()
                 ax_sigma.clear()
@@ -328,6 +363,7 @@ def self_verifying_AVQE_qrisp(
                 plt.tight_layout()
                 plt.pause(0.01)
 
+            # Verification check
             if const_step or sigma_H <= (delta_C / 4.0):
                 break
             else:
