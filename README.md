@@ -99,3 +99,6 @@ $$\sigma_{\psi_t}(H(\lambda_t)) < \frac{\Delta_c}{4}$$
 and the adiabatic step size satisfies $\delta\lambda < \delta\lambda_V = \frac{\Delta_c - \sigma_{\psi_t}(H(\lambda_t))}{2 \sigma_{\psi_t}(H_f - H_i)}$, then the prepared state $\vert{}\psi_t\rangle$ is uniquely associated with the true ground-state eigenbranch of $H(\lambda_t)$ and satisfies the strict lower fidelity bound:
 
 $$\mathcal{F} = \vert{}\langle \psi_0(\lambda_t) \vert{} \psi_t \rangle\vert{}^2 \ge \frac{8}{9} \approx 88.89\%$$
+
+## 7. Examples of plots
+![Algorithm Results](docs/qnp.png)
