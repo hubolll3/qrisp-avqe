@@ -101,4 +101,43 @@ and the adiabatic step size satisfies $\delta\lambda < \delta\lambda_V = \frac{\
 $$\mathcal{F} = \vert{}\langle \psi_0(\lambda_t) \vert{} \psi_t \rangle\vert{}^2 \ge \frac{8}{9} \approx 88.89\%$$
 
 ## 7. Examples of plots
+We initialize the system in the ground state of a transverse field $H_i$ and adiabatically evolve it toward the target Hamiltonian $H_f$:
+
+$$H_i = -X_0 - X_1$$
+
+$$H_f = -Z_0 Z_1 - 0.2 X_0 - 0.2 X_1$$
+
+#### **Ansatz & Parameter Initialization**
+
+```python
+import numpy as np
+from qrisp.operators import X, Z
+
+# Define Hamiltonians
+Hi_2q = -1.0 * X(0) - 1.0 * X(1)
+Hf_2q = -1.0 * Z(0) * Z(1) - 0.2 * X(0) - 0.2 * X(1)
+
+# 2-Qubit 2-Layer Grid Ansatz (10 Pauli Strings)
+P_strings = [
+    # Initial State Preparation
+    ['Y', 'I'],
+    ['I', 'Y'],
+    # Layer 1
+    ['Y', 'X'],
+    ['X', 'Y'],
+    ['Y', 'I'],
+    ['I', 'Y'],
+    # Layer 2
+    ['Y', 'X'],
+    ['X', 'Y'],
+    ['Y', 'I'],
+    ['I', 'Y'],
+]
+
+# Initial parameters: pi/4 for initial rotations, 0 for remaining layers
+params_0 = [np.pi / 4.0, np.pi / 4.0] + [0.0] * 8
+```
+![Algorithm Results](vanilla.png)
+![Algorithm Results](adam.png)
 ![Algorithm Results](qnp.png)
+Note: The energy value precision is 0.01, that is why the prepared state energy can sometimes be slightly lower than the ground energy , and sigma_H is exactly 0.
