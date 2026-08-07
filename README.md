@@ -140,4 +140,7 @@ params_0 = [np.pi / 4.0, np.pi / 4.0] + [0.0] * 8
 ![Algorithm Results](vanilla.png)
 ![Algorithm Results](adam.png)
 ![Algorithm Results](qnp.png)
-Note: The energy value precision is 0.01, that is why the prepared state energy can sometimes be slightly lower than the ground energy , and sigma_H is exactly 0.
+
+## 8. Note
+The energy value precision is 0.01, that is why the prepared state energy can sometimes be slightly lower than the ground energy , and sigma_H is exactly 0.
+Also the time needed for the calculation does fluctuate a bit.
